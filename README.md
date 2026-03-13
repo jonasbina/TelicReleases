@@ -1,2 +1,2 @@
-# TelicReleases
-Releases of my app Telic
+### **Telic Releases**
+Releases of my app **Telic**
