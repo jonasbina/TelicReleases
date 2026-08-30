@@ -1,0 +1,44 @@
+name: Publish Snaps to Snapcraft
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: Upload to Snap Store
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Snap files from release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "Manually triggered: Downloading snaps from the latest release..."
+            gh release download --pattern "*.snap"
+          else
+            echo "Release triggered: Downloading snaps for ${{ github.event.release.tag_name }}..."
+            gh release download ${{ github.event.release.tag_name }} --pattern "*.snap"
+          fi
+
+      - name: Install Snapcraft
+        run: sudo snap install snapcraft --classic
+
+      - name: Publish to Snapcraft
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+        run: |
+          for snap_file in *.snap; do
+            if [ -f "$snap_file" ]; then
+              echo "Uploading $snap_file to Snapcraft..."
+              snapcraft upload "$snap_file" --release=stable
+            else
+              echo "No .snap files found to upload."
+              exit 1
+            fi
+          done
