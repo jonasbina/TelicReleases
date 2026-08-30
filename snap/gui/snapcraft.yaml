@@ -1,0 +1,43 @@
+name: get-telic
+version: '6.5.5'
+summary: A free, all-in-one productivity app
+description: |
+  Telic is a powerful local-first ecosystem incorporating tasks, habits, calendars, Gantt charts, reminders, and Markdown journals.
+license: Proprietary
+base: core24
+confinement: strict
+grade: stable
+icon: snap/gui/telic.png
+
+apps:
+  telic:
+    command: opt/telic/bin/Telic
+    extensions: [ gnome ]
+    environment:
+      GTK_USE_PORTAL: '1'
+    plugs:
+      - home
+      - network
+      - removable-media
+
+parts:
+  get-telic:
+    plugin: nil
+    build-packages:
+      - wget
+      - dpkg
+    override-build: |
+      if [ -f "$CRAFT_PROJECT_DIR/telic.deb" ]; then
+        echo "Found local telic.deb, skipping remote download."
+        cp "$CRAFT_PROJECT_DIR/telic.deb" telic.deb
+
+      elif [ "$CRAFT_ARCH_BUILD_FOR" = "amd64" ]; then
+        wget "https://github.com/jonasbina/TelicReleases/releases/download/$CRAFT_PROJECT_VERSION/telic_${CRAFT_PROJECT_VERSION}_amd64.deb" -O telic.deb
+      elif [ "$CRAFT_ARCH_BUILD_FOR" = "arm64" ]; then
+        wget "https://github.com/jonasbina/TelicReleases/releases/download/$CRAFT_PROJECT_VERSION/telic_${CRAFT_PROJECT_VERSION}_arm64.deb" -O telic.deb
+      else
+        echo "Unsupported architecture: $CRAFT_ARCH_BUILD_FOR"
+        exit 1
+      fi
+      
+      dpkg -x telic.deb $CRAFT_PART_INSTALL
