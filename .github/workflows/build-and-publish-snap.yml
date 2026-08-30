@@ -42,7 +42,7 @@ jobs:
 
       - name: Replace Snap file in GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           REPO="jonasbina/TelicReleases"
           echo "Uploading generated snap file(s) to $REPO release $LATEST_TAG..."
