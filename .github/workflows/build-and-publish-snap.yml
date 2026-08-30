@@ -6,6 +6,8 @@ on:
 jobs:
   build-and-publish:
     name: Build & Publish (${{ matrix.arch }})
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
