@@ -1,15 +1,19 @@
-name: Build and Publish Snaps
+name: Rebuild and Publish Snaps to Store
 
 on:
   workflow_dispatch:
 
 jobs:
   build-and-publish:
-    name: Build & Publish (${{ matrix.architecture }})
-    runs-on: ubuntu-latest
+    name: Build & Publish (${{ matrix.arch }})
     strategy:
       matrix:
-        architecture: [amd64, arm64]
+        include:
+          - os: ubuntu-22.04
+            arch: amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout repository
@@ -17,44 +21,44 @@ jobs:
 
       - name: Download Deb file from latest release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
         run: |
-          LATEST_TAG=$(gh release view --json tagName -q ".tagName")
-          echo "Targeting latest release: $LATEST_TAG"
+          REPO="jonasbina/TelicReleases"
           
-          gh release download "$LATEST_TAG" --pattern "*_${{ matrix.architecture }}.deb"
+          LATEST_TAG=$(gh release view --repo "$REPO" --json tagName -q ".tagName")
+          echo "LATEST_TAG=$LATEST_TAG" >> $GITHUB_ENV
+          echo "Targeting release: $LATEST_TAG for architecture ${{ matrix.arch }}"
           
-          mv *_${{ matrix.architecture }}.deb telic.deb
+          gh release download "$LATEST_TAG" --repo "$REPO" --pattern "*_${{ matrix.arch }}.deb"
+          
+          mv *_${{ matrix.arch }}.deb telic.deb
+          
+          VERSION="${LATEST_TAG#v}"
+          sed -i "s/^version: .*/version: '${VERSION}'/" snap/snapcraft.yaml
 
-      - name: Set up QEMU
-        if: matrix.architecture == 'arm64'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: arm64
-
-      - name: Build Snap
-        id: snapcraft
-        uses: diddlesnaps/snapcraft-multiarch-action@v1
-        with:
-          architecture: ${{ matrix.architecture }}
+      - name: Build Snap Natively (Official Action)
+        uses: snapcore/action-build@v1
+        id: snap_build
 
       - name: Replace Snap file in GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
         run: |
-          LATEST_TAG=$(gh release view --json tagName -q ".tagName")
-          SNAP_FILE="${{ steps.snapcraft.outputs.snap }}"
+          REPO="jonasbina/TelicReleases"
+          echo "Uploading generated snap file(s) to $REPO release $LATEST_TAG..."
           
-          echo "Uploading $SNAP_FILE to GitHub Release $LATEST_TAG..."
-          gh release upload "$LATEST_TAG" "$SNAP_FILE" --clobber
+          gh release upload "$LATEST_TAG" *.snap --repo "$REPO" --clobber
 
-      - name: Install Snapcraft (for uploading to Store)
+      - name: Install Snapcraft
         run: sudo snap install snapcraft --classic
 
       - name: Publish to Snapcraft Store
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
         run: |
-          SNAP_FILE="${{ steps.snapcraft.outputs.snap }}"
-          echo "Publishing $SNAP_FILE to Snapcraft store..."
-          snapcraft upload "$SNAP_FILE" --release=stable
+          for snap_file in *.snap; do
+            if [ -f "$snap_file" ]; then
+              echo "Publishing $snap_file to Snapcraft..."
+              snapcraft upload "$snap_file" --release=stable
+            fi
+          done
