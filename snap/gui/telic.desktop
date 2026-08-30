@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Telic
+Comment=A free, all-in-one productivity app
+Exec=telic
+Icon=${SNAP}/meta/gui/telic.png
+Terminal=false
+Type=Application
+Categories=Office;Utility;ProjectManagement;
